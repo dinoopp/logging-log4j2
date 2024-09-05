@@ -24,23 +24,25 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
-import java.util.zip.Deflater;
 import org.apache.logging.log4j.core.appender.rolling.action.Action;
 import org.apache.logging.log4j.core.appender.rolling.action.CompositeAction;
+import org.apache.logging.log4j.core.appender.rolling.action.CompressActionFactory;
+import org.apache.logging.log4j.core.appender.rolling.action.CompressActionFactoryProvider;
 import org.apache.logging.log4j.core.appender.rolling.action.FileRenameAction;
 import org.apache.logging.log4j.core.appender.rolling.action.PathCondition;
 import org.apache.logging.log4j.core.appender.rolling.action.PosixViewAttributeAction;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.plugins.PluginConfiguration;
 import org.apache.logging.log4j.core.lookup.StrSubstitutor;
-import org.apache.logging.log4j.core.util.Integers;
 import org.apache.logging.log4j.plugins.Configurable;
 import org.apache.logging.log4j.plugins.Plugin;
 import org.apache.logging.log4j.plugins.PluginBuilderAttribute;
 import org.apache.logging.log4j.plugins.PluginElement;
 import org.apache.logging.log4j.plugins.PluginFactory;
+import org.jspecify.annotations.Nullable;
 
 /**
  * When rolling over, <code>DirectWriteRolloverStrategy</code> writes directly to the file as resolved by the file
@@ -68,7 +70,7 @@ public class DirectWriteRolloverStrategy extends AbstractRolloverStrategy implem
         private String maxFiles;
 
         @PluginBuilderAttribute("compressionLevel")
-        private String compressionLevelStr;
+        private Integer compressionLevel;
 
         @PluginElement("Actions")
         private Action[] customActions;
@@ -94,10 +96,9 @@ public class DirectWriteRolloverStrategy extends AbstractRolloverStrategy implem
                     maxIndex = DEFAULT_MAX_FILES;
                 }
             }
-            final int compressionLevel = Integers.parseInt(compressionLevelStr, Deflater.DEFAULT_COMPRESSION);
             return new DirectWriteRolloverStrategy(
                     maxIndex,
-                    compressionLevel,
+                    Map.of(CompressActionFactory.COMPRESSION_LEVEL, compressionLevel),
                     config.getStrSubstitutor(),
                     customActions,
                     stopCustomActionsOnError,
@@ -120,18 +121,18 @@ public class DirectWriteRolloverStrategy extends AbstractRolloverStrategy implem
             return this;
         }
 
-        public String getCompressionLevelStr() {
-            return compressionLevelStr;
+        public @Nullable Integer getCompressionLevel() {
+            return compressionLevel;
         }
 
         /**
          * Defines compression level.
          *
-         * @param compressionLevelStr The compression level, 0 (less) through 9 (more); applies only to ZIP files.
+         * @param compressionLevel The compression level, 0 (less) through 9 (more); applies only to ZIP files.
          * @return This builder for chaining convenience
          */
-        public Builder setCompressionLevelStr(final String compressionLevelStr) {
-            this.compressionLevelStr = compressionLevelStr;
+        public Builder setCompressionLevel(final Integer compressionLevel) {
+            this.compressionLevel = compressionLevel;
             return this;
         }
 
@@ -206,7 +207,7 @@ public class DirectWriteRolloverStrategy extends AbstractRolloverStrategy implem
      */
     private final int maxFiles;
 
-    private final int compressionLevel;
+    private final Map<String, ?> compressionOptions;
     private final List<Action> customActions;
     private final boolean stopCustomActionsOnError;
     private volatile String currentFileName;
@@ -224,24 +225,20 @@ public class DirectWriteRolloverStrategy extends AbstractRolloverStrategy implem
      */
     protected DirectWriteRolloverStrategy(
             final int maxFiles,
-            final int compressionLevel,
+            final Map<String, ?> compressionOptions,
             final StrSubstitutor strSubstitutor,
             final Action[] customActions,
             final boolean stopCustomActionsOnError,
             final String tempCompressedFilePatternString,
             final Configuration configuration) {
-        super(strSubstitutor);
+        super(CompressActionFactoryProvider.newInstance(configuration), strSubstitutor);
         this.maxFiles = maxFiles;
-        this.compressionLevel = compressionLevel;
+        this.compressionOptions = compressionOptions;
         this.stopCustomActionsOnError = stopCustomActionsOnError;
         this.customActions = customActions == null ? Collections.<Action>emptyList() : Arrays.asList(customActions);
         this.tempCompressedFilePattern = tempCompressedFilePatternString != null
                 ? new PatternProcessor(configuration, tempCompressedFilePatternString)
                 : null;
-    }
-
-    public int getCompressionLevel() {
-        return this.compressionLevel;
     }
 
     public List<Action> getCustomActions() {
@@ -324,9 +321,9 @@ public class DirectWriteRolloverStrategy extends AbstractRolloverStrategy implem
         String compressedName = sourceName;
         currentFileName = null;
         nextIndex = fileIndex + 1;
-        final FileExtension fileExtension = manager.getFileExtension();
-        if (fileExtension != null) {
-            compressedName += fileExtension.getExtension();
+        final CompressActionFactory compressActionFactory = manager.getCompressActionFactory();
+        if (compressActionFactory != null) {
+            compressedName += compressActionFactory.getExtension();
             if (tempCompressedFilePattern != null) {
                 final StringBuilder buf = new StringBuilder();
                 tempCompressedFilePattern.formatFileName(strSubstitutor, buf, fileIndex);
@@ -338,12 +335,13 @@ public class DirectWriteRolloverStrategy extends AbstractRolloverStrategy implem
                 }
                 compressAction = new CompositeAction(
                         Arrays.asList(
-                                fileExtension.createCompressAction(
-                                        sourceName, tmpCompressedName, true, compressionLevel),
+                                compressActionFactory.createCompressAction(
+                                        sourceName, tmpCompressedName, compressionOptions),
                                 new FileRenameAction(tmpCompressedNameFile, new File(compressedName), true)),
                         true);
             } else {
-                compressAction = fileExtension.createCompressAction(sourceName, compressedName, true, compressionLevel);
+                compressAction =
+                        compressActionFactory.createCompressAction(sourceName, compressedName, compressionOptions);
             }
         }
 

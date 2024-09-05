@@ -87,7 +87,7 @@ public class OnStartupTriggeringPolicyTest {
                 .setConfiguration(configuration)
                 .build();
         final RolloverStrategy strategy = DefaultRolloverStrategy.newBuilder()
-                .setCompressionLevelStr("0")
+                .setCompressionLevel(0)
                 .setStopCustomActionsOnError(true)
                 .setConfig(configuration)
                 .build();

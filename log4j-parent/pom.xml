@@ -280,13 +280,6 @@
         <version>${commons-codec.version}</version>
       </dependency>
 
-      <!-- Used for compressing to formats other than `zip` and `gz`: -->
-      <dependency>
-        <groupId>org.apache.commons</groupId>
-        <artifactId>commons-compress</artifactId>
-        <version>${commons-compress.version}</version>
-      </dependency>
-
       <dependency>
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-csv</artifactId>

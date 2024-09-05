@@ -97,12 +97,12 @@ public final class RollingRandomAccessFileAppender
             if (strategy == null) {
                 if (fileName != null) {
                     strategy = DefaultRolloverStrategy.newBuilder()
-                            .setCompressionLevelStr(String.valueOf(Deflater.DEFAULT_COMPRESSION))
+                            .setCompressionLevel(Deflater.DEFAULT_COMPRESSION)
                             .setConfig(getConfiguration())
                             .build();
                 } else {
                     strategy = DirectWriteRolloverStrategy.newBuilder()
-                            .setCompressionLevelStr(String.valueOf(Deflater.DEFAULT_COMPRESSION))
+                            .setCompressionLevel(Deflater.DEFAULT_COMPRESSION)
                             .setConfig(getConfiguration())
                             .build();
                 }

@@ -233,6 +233,7 @@
     <!-- Last comes the rest of the modules in alphabetical order.
          Note that modules here must have a corresponding entry in `dependencyManagement > dependencies` block below! -->
     <module>log4j-async-logger</module>
+    <module>log4j-compress</module>
     <module>log4j-config-jackson</module>
     <module>log4j-config-properties</module>
     <module>log4j-config-yaml</module>
@@ -387,6 +388,12 @@
       <dependency>
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-async-logger</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-compress</artifactId>
         <version>${project.version}</version>
       </dependency>
 

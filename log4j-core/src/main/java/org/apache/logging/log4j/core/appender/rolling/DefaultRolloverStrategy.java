@@ -27,9 +27,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
-import java.util.zip.Deflater;
 import org.apache.logging.log4j.core.appender.rolling.action.Action;
 import org.apache.logging.log4j.core.appender.rolling.action.CompositeAction;
+import org.apache.logging.log4j.core.appender.rolling.action.CompressActionFactory;
+import org.apache.logging.log4j.core.appender.rolling.action.CompressActionFactoryProvider;
 import org.apache.logging.log4j.core.appender.rolling.action.FileRenameAction;
 import org.apache.logging.log4j.core.appender.rolling.action.PathCondition;
 import org.apache.logging.log4j.core.appender.rolling.action.PosixViewAttributeAction;
@@ -37,12 +38,12 @@ import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.NullConfiguration;
 import org.apache.logging.log4j.core.config.plugins.PluginConfiguration;
 import org.apache.logging.log4j.core.lookup.StrSubstitutor;
-import org.apache.logging.log4j.core.util.Integers;
 import org.apache.logging.log4j.plugins.Configurable;
 import org.apache.logging.log4j.plugins.Plugin;
 import org.apache.logging.log4j.plugins.PluginBuilderAttribute;
 import org.apache.logging.log4j.plugins.PluginElement;
 import org.apache.logging.log4j.plugins.PluginFactory;
+import org.jspecify.annotations.Nullable;
 
 /**
  * When rolling over, <code>DefaultRolloverStrategy</code> renames files according to an algorithm as described below.
@@ -98,7 +99,7 @@ public class DefaultRolloverStrategy extends AbstractRolloverStrategy {
         private String fileIndex;
 
         @PluginBuilderAttribute("compressionLevel")
-        private String compressionLevelStr;
+        private @Nullable Integer compressionLevel;
 
         @PluginElement("Actions")
         private Action[] customActions;
@@ -142,9 +143,7 @@ public class DefaultRolloverStrategy extends AbstractRolloverStrategy {
                     }
                 }
             }
-            final String trimmedCompressionLevelStr =
-                    compressionLevelStr != null ? compressionLevelStr.trim() : compressionLevelStr;
-            final int compressionLevel = Integers.parseInt(trimmedCompressionLevelStr, Deflater.DEFAULT_COMPRESSION);
+
             // The config object can be null only in tests
             final Configuration configuration = config != null ? config : new NullConfiguration();
             final StrSubstitutor nonNullStrSubstitutor = configuration.getStrSubstitutor();
@@ -152,7 +151,7 @@ public class DefaultRolloverStrategy extends AbstractRolloverStrategy {
                     minIndex,
                     maxIndex,
                     useMax,
-                    compressionLevel,
+                    Map.of(CompressActionFactory.COMPRESSION_LEVEL, compressionLevel),
                     nonNullStrSubstitutor,
                     customActions,
                     stopCustomActionsOnError,
@@ -206,18 +205,18 @@ public class DefaultRolloverStrategy extends AbstractRolloverStrategy {
             return this;
         }
 
-        public String getCompressionLevelStr() {
-            return compressionLevelStr;
+        public @Nullable Integer getCompressionLevel() {
+            return compressionLevel;
         }
 
         /**
          * Defines compression level.
          *
-         * @param compressionLevelStr The compression level, 0 (less) through 9 (more); applies only to ZIP files.
+         * @param compressionLevel The compression level, 0 (less) through 9 (more); applies only to ZIP files.
          * @return This builder for chaining convenience
          */
-        public Builder setCompressionLevelStr(final String compressionLevelStr) {
-            this.compressionLevelStr = compressionLevelStr;
+        public Builder setCompressionLevel(final Integer compressionLevel) {
+            this.compressionLevel = compressionLevel;
             return this;
         }
 
@@ -298,7 +297,7 @@ public class DefaultRolloverStrategy extends AbstractRolloverStrategy {
     private final int minIndex;
 
     private final boolean useMax;
-    private final int compressionLevel;
+    private final Map<String, ?> compressionOptions;
     private final List<Action> customActions;
     private final boolean stopCustomActionsOnError;
     private final PatternProcessor tempCompressedFilePattern;
@@ -317,26 +316,22 @@ public class DefaultRolloverStrategy extends AbstractRolloverStrategy {
             final int minIndex,
             final int maxIndex,
             final boolean useMax,
-            final int compressionLevel,
+            final Map<String, ?> compressionOptions,
             final StrSubstitutor strSubstitutor,
             final Action[] customActions,
             final boolean stopCustomActionsOnError,
             final String tempCompressedFilePatternString,
             final Configuration configuration) {
-        super(strSubstitutor);
+        super(CompressActionFactoryProvider.newInstance(configuration), strSubstitutor);
         this.minIndex = minIndex;
         this.maxIndex = maxIndex;
         this.useMax = useMax;
-        this.compressionLevel = compressionLevel;
+        this.compressionOptions = compressionOptions;
         this.stopCustomActionsOnError = stopCustomActionsOnError;
         this.customActions = customActions == null ? Collections.<Action>emptyList() : Arrays.asList(customActions);
         this.tempCompressedFilePattern = tempCompressedFilePatternString != null
                 ? new PatternProcessor(configuration, tempCompressedFilePatternString)
                 : null;
-    }
-
-    public int getCompressionLevel() {
-        return this.compressionLevel;
     }
 
     public List<Action> getCustomActions() {
@@ -523,10 +518,12 @@ public class DefaultRolloverStrategy extends AbstractRolloverStrategy {
         final String compressedName = renameTo;
         Action compressAction = null;
 
-        final FileExtension fileExtension = manager.getFileExtension();
-        if (fileExtension != null) {
+        final CompressActionFactory compressActionFactory = manager.getCompressActionFactory();
+        if (compressActionFactory != null) {
             final File renameToFile = new File(renameTo);
-            renameTo = renameTo.substring(0, renameTo.length() - fileExtension.length());
+            // Without dot + extension
+            renameTo = renameTo.substring(
+                    0, renameTo.length() - compressActionFactory.getExtension().length());
             if (tempCompressedFilePattern != null) {
                 buf.delete(0, buf.length());
                 tempCompressedFilePattern.formatFileName(strSubstitutor, buf, fileIndex);
@@ -538,11 +535,13 @@ public class DefaultRolloverStrategy extends AbstractRolloverStrategy {
                 }
                 compressAction = new CompositeAction(
                         Arrays.asList(
-                                fileExtension.createCompressAction(renameTo, tmpCompressedName, true, compressionLevel),
+                                compressActionFactory.createCompressAction(
+                                        renameTo, tmpCompressedName, compressionOptions),
                                 new FileRenameAction(tmpCompressedNameFile, renameToFile, true)),
                         true);
             } else {
-                compressAction = fileExtension.createCompressAction(renameTo, compressedName, true, compressionLevel);
+                compressAction =
+                        compressActionFactory.createCompressAction(renameTo, compressedName, compressionOptions);
             }
         }
 
