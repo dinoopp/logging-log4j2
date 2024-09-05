@@ -147,11 +147,14 @@ public class DefaultRolloverStrategy extends AbstractRolloverStrategy {
             // The config object can be null only in tests
             final Configuration configuration = config != null ? config : new NullConfiguration();
             final StrSubstitutor nonNullStrSubstitutor = configuration.getStrSubstitutor();
+            final Map<String, ?> compressionOptions = compressionLevel != null
+                    ? Map.of(CompressActionFactory.COMPRESSION_LEVEL, compressionLevel)
+                    : Map.of();
             return new DefaultRolloverStrategy(
                     minIndex,
                     maxIndex,
                     useMax,
-                    Map.of(CompressActionFactory.COMPRESSION_LEVEL, compressionLevel),
+                    compressionOptions,
                     nonNullStrSubstitutor,
                     customActions,
                     stopCustomActionsOnError,

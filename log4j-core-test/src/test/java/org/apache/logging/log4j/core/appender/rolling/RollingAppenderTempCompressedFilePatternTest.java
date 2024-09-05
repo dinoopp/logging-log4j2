@@ -17,6 +17,7 @@
 package org.apache.logging.log4j.core.appender.rolling;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -83,7 +84,7 @@ class RollingAppenderTempCompressedFilePatternTest {
             AtomicInteger fileCount = new AtomicInteger();
             AtomicInteger gzippedFileCount = new AtomicInteger();
             try (final DirectoryStream<Path> files = Files.newDirectoryStream(logsDir)) {
-                assertThat(files).allSatisfy(file -> {
+                files.forEach(file -> assertDoesNotThrow(() -> {
                     fileCount.incrementAndGet();
                     final boolean isGzipped = file.getFileName().toString().endsWith(".gz");
                     if (isGzipped) {
@@ -97,7 +98,7 @@ class RollingAppenderTempCompressedFilePatternTest {
                             lines.forEach(messages::remove);
                         }
                     }
-                });
+                }));
             }
             assertThat(messages).as("Lost messages").isEmpty();
             assertThat(fileCount).as("Log file file count").hasValueGreaterThan(16);

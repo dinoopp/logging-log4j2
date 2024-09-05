@@ -96,9 +96,12 @@ public class DirectWriteRolloverStrategy extends AbstractRolloverStrategy implem
                     maxIndex = DEFAULT_MAX_FILES;
                 }
             }
+            final Map<String, ?> compressionOptions = compressionLevel != null
+                    ? Map.of(CompressActionFactory.COMPRESSION_LEVEL, compressionLevel)
+                    : Map.of();
             return new DirectWriteRolloverStrategy(
                     maxIndex,
-                    Map.of(CompressActionFactory.COMPRESSION_LEVEL, compressionLevel),
+                    compressionOptions,
                     config.getStrSubstitutor(),
                     customActions,
                     stopCustomActionsOnError,
