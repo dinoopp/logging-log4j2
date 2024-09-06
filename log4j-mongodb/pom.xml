@@ -146,7 +146,13 @@
 
       <id>docker</id>
 
+      <!--
+        ~ Only the `ubuntu` CI runners have access to Docker
+        -->
       <activation>
+        <os>
+          <family>linux</family>
+        </os>
         <property>
           <name>env.CI</name>
           <value>true</value>
