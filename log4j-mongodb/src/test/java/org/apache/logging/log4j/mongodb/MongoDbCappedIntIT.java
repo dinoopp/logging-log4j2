@@ -16,25 +16,18 @@
  */
 package org.apache.logging.log4j.mongodb;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoIterable;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.test.junit.LoggerContextSource;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests MongoDbRule.
- * <p>
- * The test framework {@code de.flapdoodle.embed.mongo} requires Java 8.
- * </p>
- */
 @UsingMongoDb
-public class MongoDbResolverTest {
+@LoggerContextSource("MongoDbCappedIntIT.xml")
+class MongoDbCappedIntIT extends AbstractMongoDbCappedIT {
 
     @Test
-    public void testAccess(final MongoClient mongoClient) {
-        final MongoIterable<String> databaseNames = mongoClient.listDatabaseNames();
-        assertNotNull(databaseNames);
-        assertNotNull(databaseNames.first());
+    @Override
+    protected void test(LoggerContext ctx, MongoClient mongoClient) {
+        super.test(ctx, mongoClient);
     }
 }

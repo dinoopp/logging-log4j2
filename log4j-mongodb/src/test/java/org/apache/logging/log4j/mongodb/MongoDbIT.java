@@ -16,9 +16,10 @@
  */
 package org.apache.logging.log4j.mongodb;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
@@ -29,18 +30,32 @@ import org.bson.Document;
 import org.junit.jupiter.api.Test;
 
 @UsingMongoDb
-@LoggerContextSource("log4j2-mongodb-auth-failure.xml")
-public class MongoDbAuthFailureTest {
+@LoggerContextSource("MongoDbIT.xml")
+class MongoDbIT {
 
     @Test
-    public void test(final LoggerContext ctx, final MongoClient mongoClient) {
-        final Logger logger = ctx.getLogger(MongoDbAuthFailureTest.class);
-        logger.info("Hello log");
+    void test(final LoggerContext ctx, final MongoClient mongoClient) {
+        final Logger logger = ctx.getLogger(MongoDbIT.class);
+        logger.info("Hello log 1");
+        logger.info("Hello log 2", new RuntimeException("Hello ex 2"));
         final MongoDatabase database = mongoClient.getDatabase(MongoDbTestConstants.DATABASE_NAME);
         assertNotNull(database);
-        final MongoCollection<Document> collection = database.getCollection(MongoDbTestConstants.DATABASE_NAME);
+        final MongoCollection<Document> collection =
+                database.getCollection(getClass().getSimpleName());
+        ;
         assertNotNull(collection);
-        final Document first = collection.find().first();
-        assertNull(first);
+        final FindIterable<Document> found = collection.find();
+        final Document first = found.first();
+        assertNotNull(first, "first");
+        assertEquals("Hello log 1", first.getString("message"), first.toJson());
+        assertEquals("INFO", first.getString("level"), first.toJson());
+        //
+        found.skip(1);
+        final Document second = found.first();
+        assertNotNull(second);
+        assertEquals("Hello log 2", second.getString("message"), second.toJson());
+        assertEquals("INFO", second.getString("level"), second.toJson());
+        final Document thrown = second.get("thrown", Document.class);
+        assertEquals("Hello ex 2", thrown.getString("message"), thrown.toJson());
     }
 }

@@ -30,23 +30,33 @@ import org.bson.Document;
 import org.junit.jupiter.api.Test;
 
 @UsingMongoDb
-@LoggerContextSource("log4j2-mongodb.xml")
-public class MongoDbTest {
+@LoggerContextSource("MongoDbAdditionalFields.xml")
+class MongoDbAdditionalFieldsIT {
 
     @Test
-    public void test(final LoggerContext ctx, final MongoClient mongoClient) {
-        final Logger logger = ctx.getLogger(MongoDbTest.class);
+    void test(final LoggerContext ctx, final MongoClient mongoClient) {
+        final Logger logger = ctx.getLogger(MongoDbAdditionalFieldsIT.class);
         logger.info("Hello log 1");
         logger.info("Hello log 2", new RuntimeException("Hello ex 2"));
         final MongoDatabase database = mongoClient.getDatabase(MongoDbTestConstants.DATABASE_NAME);
         assertNotNull(database);
-        final MongoCollection<Document> collection = database.getCollection(MongoDbTestConstants.COLLECTION_NAME);
+        final MongoCollection<Document> collection =
+                database.getCollection(getClass().getSimpleName());
         assertNotNull(collection);
         final FindIterable<Document> found = collection.find();
         final Document first = found.first();
         assertNotNull(first, "first");
         assertEquals("Hello log 1", first.getString("message"), first.toJson());
         assertEquals("INFO", first.getString("level"), first.toJson());
+        //
+        Document list;
+        final String envPath = System.getenv("PATH");
+        //
+        list = first.get("additionalFields", Document.class);
+        assertEquals("1", list.getString("A"), first.toJson());
+        assertEquals("2", list.getString("B"), first.toJson());
+        assertEquals(envPath, list.getString("env1"), first.toJson());
+        assertEquals(envPath, list.getString("env2"), first.toJson());
         //
         found.skip(1);
         final Document second = found.first();
@@ -55,5 +65,11 @@ public class MongoDbTest {
         assertEquals("INFO", second.getString("level"), second.toJson());
         final Document thrown = second.get("thrown", Document.class);
         assertEquals("Hello ex 2", thrown.getString("message"), thrown.toJson());
+        //
+        list = second.get("additionalFields", Document.class);
+        assertEquals("1", list.getString("A"), first.toJson());
+        assertEquals("2", list.getString("B"), first.toJson());
+        assertEquals(envPath, list.getString("env1"), first.toJson());
+        assertEquals(envPath, list.getString("env2"), first.toJson());
     }
 }

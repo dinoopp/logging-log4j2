@@ -16,11 +16,18 @@
  */
 package org.apache.logging.log4j.mongodb;
 
+import com.mongodb.client.MongoClient;
+import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.test.junit.LoggerContextSource;
+import org.junit.jupiter.api.Test;
 
 @UsingMongoDb
-@LoggerContextSource("log4j2-mongodb-capped-long.xml")
-public class MongoDbCappedLongTest extends AbstractMongoDbCappedTest {
+@LoggerContextSource("MongoDbCappedLongIT.xml")
+class MongoDbCappedLongIT extends AbstractMongoDbCappedIT {
 
-    // test is in superclass
+    @Test
+    @Override
+    protected void test(LoggerContext ctx, MongoClient mongoClient) {
+        super.test(ctx, mongoClient);
+    }
 }

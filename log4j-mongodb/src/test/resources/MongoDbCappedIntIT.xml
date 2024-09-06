@@ -18,8 +18,10 @@
 <Configuration status="WARN">
   <Appenders>
     <NoSql name="MongoDbAppender">
-      <MongoDb connection="mongodb://localhost:${test:MongoDBTestPort:-27017}/testDb.testCollection" />
-      <MessageLayout />
+      <MongoDb
+        connection="mongodb://localhost:${sys:log4j.mongo.port:-27017}/testDb.MongoDbCappedIntIT"
+        capped="true"
+        collectionSize="1073741824"/>
     </NoSql>
   </Appenders>
   <Loggers>

@@ -765,6 +765,12 @@
       <plugins>
 
         <plugin>
+          <groupId>io.fabric8</groupId>
+          <artifactId>docker-maven-plugin</artifactId>
+          <version>${docker-maven-plugin.version}</version>
+        </plugin>
+
+        <plugin>
           <groupId>org.ops4j.pax.exam</groupId>
           <artifactId>exam-maven-plugin</artifactId>
           <version>${exam-maven-plugin.version}</version>
